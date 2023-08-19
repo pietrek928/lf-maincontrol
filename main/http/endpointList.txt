@@ -1,0 +1,16 @@
+ENDPOINT list for 10.10.128.1
+
+"/read_file/*", .method = HTTP_GET,
+"/read_file/*", .method = HTTP_POST,
+"/list_files/*", .method = HTTP_GET,
+
+"/hw_api", .method = HTTP_POST,
+
+"/static/*", .method = HTTP_GET,
+"/", .method = HTTP_GET,
+"/manifest.json", .method = HTTP_GET,
+"/wifi/*", .method = HTTP_POST,
+    "/wifi/list_aps"
+    "/wifi/status"
+    "/wifi/send_command"
+    "/wifi/set_credentials"
