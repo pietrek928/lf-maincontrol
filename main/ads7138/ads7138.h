@@ -1,12 +1,11 @@
 #pragma once
 
-#include <driver/i2c.h>
 #include <esp_log.h>
 
 #include <cstdint>
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 struct __attribute__((packed)) ads7138_struct
 {

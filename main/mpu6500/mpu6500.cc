@@ -1,11 +1,13 @@
-#include <driver/i2c.h>
-#include <esp_log.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-
 #include "mpu6500.h"
 #include "registers.h"
 #include "types.h"
+#include "../utils.h"
+
+#include <driver/i2c.h>
+#include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
 
 /* @brief tag used for ESP serial console messages */
 static const char TAG[] = "MPU6500";
@@ -43,7 +45,7 @@ void mpu6500_init()
 
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    // set clock source 
+    // set clock source
     mpu6500_set_bits(PWR_MGMT1, PWR1_CLKSEL_BIT, PWR1_CLKSEL_LENGTH, CLOCK_PLL);
 
     // gyroscope set full scale range - 184 Hz bo filtr na w opcji 1
@@ -54,20 +56,17 @@ void mpu6500_init()
 
     // low pass filter - 188Hz
     mpu6500_set_bits(CONFIG, CONFIG_DLPF_CFG_BIT, CONFIG_DLPF_CFG_LENGTH, DLPF_188HZ);
-
-    /* start wifi manager task */
-    ESP_LOGI(TAG, "IMU Task started!");
-
-    xTaskCreate(&mpu6500_task, "mpu6500_task", 4096, NULL, 10, &mpu6500_task_handle);
 }
 
 /**
  * @brief Main MPU6500 Task - read output data from IMU
- * 
- * @param pvParameters 
+ *
+ * @param pvParameters
  */
-void mpu6500_task(void* pvParameters)
-{    
+void mpu6500_test_task(void* pvParameters)
+{
+    mpu6500_init();
+
     struct mpu6500_data data;
     float temperature;
 
@@ -75,25 +74,19 @@ void mpu6500_task(void* pvParameters)
     {
         vTaskDelay(pdMS_TO_TICKS(1000));
 
-        data.accel_x_be = mpu6500_read_data_ACCEL_X();
-        data.accel_y_be = mpu6500_read_data_ACCEL_Y();
-        data.accel_z_be = mpu6500_read_data_ACCEL_Z();
-        data.temp = mpu6500_read_data_TEMP();
-        data.gyro_x_be = mpu6500_read_data_GYRO_X();
-        data.gyro_y_be = mpu6500_read_data_GYRO_Y();
-        data.gyro_z_be = mpu6500_read_data_GYRO_Z();
+        data = mpu6500_read_sensors();
 
-        ESP_LOGI(TAG, "Data form ACCEL XYZ: %u, %u, %u ", data.accel_x_be, data.accel_y_be, data.accel_z_be); 
-        ESP_LOGI(TAG, "Data form TEMP: %u", data.temp);   
-        ESP_LOGI(TAG, "Data form GYRO XYZ: %u, %u, %u ", data.gyro_x_be, data.gyro_y_be, data.gyro_z_be);  
+        ESP_LOGI(TAG, "Data form ACCEL XYZ: %u, %u, %u ", data.accel_x_be, data.accel_y_be, data.accel_z_be);
+        ESP_LOGI(TAG, "Data form TEMP: %u", data.temp_be);
+        ESP_LOGI(TAG, "Data form GYRO XYZ: %u, %u, %u ", data.gyro_x_be, data.gyro_y_be, data.gyro_z_be);
 
         /* Recalculate raw data to more complex form */
         mpu6500_calculate_results(TsACCEL, TsGYRO, data, 0);
 
-        ESP_LOGI(TAG, "SPEED XYZ: %f, %f, %f ", CalcDataMPU6500.speedX, CalcDataMPU6500.speedY, CalcDataMPU6500.speedZ); 
-        ESP_LOGI(TAG, "POSITION XYZ: %f, %f, %f ", CalcDataMPU6500.positionX, CalcDataMPU6500.positionY, CalcDataMPU6500.positionZ); 
-        
-        temperature = tempCelsius(data.temp);
+        ESP_LOGI(TAG, "SPEED XYZ: %f, %f, %f ", CalcDataMPU6500.speedX, CalcDataMPU6500.speedY, CalcDataMPU6500.speedZ);
+        ESP_LOGI(TAG, "POSITION XYZ: %f, %f, %f ", CalcDataMPU6500.positionX, CalcDataMPU6500.positionY, CalcDataMPU6500.positionZ);
+
+        temperature = mpu6500_temp_to_celsius(data.temp_be);
         ESP_LOGI(TAG, "Temp %f", temperature);
     }
 
@@ -102,10 +95,10 @@ void mpu6500_task(void* pvParameters)
 
 /**
  * @brief Set bits in MPU6500 register, flag by flag without cleaning already set data
- * 
- * @param register_address 
- * @param data 
- * @param length 
+ *
+ * @param register_address
+ * @param data
+ * @param length
  */
 void mpu6500_set_bits(uint8_t register_address, uint8_t start_bit, uint8_t bit_length, uint8_t value)
 {
@@ -121,10 +114,10 @@ void mpu6500_set_bits(uint8_t register_address, uint8_t start_bit, uint8_t bit_l
 
 /**
  * @brief Write data to MPU6500 register
- * 
- * @param register_address 
- * @param data 
- * @param length 
+ *
+ * @param register_address
+ * @param data
+ * @param length
  */
 void mpu6500_write_data(uint8_t register_address, const uint8_t *data, uint32_t length)
 {
@@ -140,10 +133,10 @@ void mpu6500_write_data(uint8_t register_address, const uint8_t *data, uint32_t 
 
 /**
  * @brief Read data from MPU6500 register
- * 
- * @param register_address 
- * @param data 
- * @param length 
+ *
+ * @param register_address
+ * @param data
+ * @param length
  */
 void mpu6500_read_data(uint8_t register_address, uint8_t *data, uint32_t length)
 {
@@ -157,6 +150,12 @@ void mpu6500_read_data(uint8_t register_address, uint8_t *data, uint32_t length)
     i2c_master_stop(cmd);
     ESP_ERROR_CHECK(i2c_master_cmd_begin(mpu6500_i2c_num, cmd, pdMS_TO_TICKS(mpu6500_timeout_ms)));
     i2c_cmd_link_delete(cmd);
+}
+
+mpu6500_data mpu6500_read_sensors() {
+    mpu6500_data data;
+    mpu6500_read_data(ACCEL_XOUT_H, (uint8_t *)&data, sizeof(data));
+    return data;
 }
 
 uint16_t mpu6500_read_data_ACCEL_X()
@@ -224,11 +223,11 @@ uint16_t mpu6500_read_data_GYRO_Z()
 
 /**
  * @brief Lets make all necessary calculations here
- * 
- * @param tsACCEL 
- * @param tsGYRO 
- * @param data 
- * @param gravityAcc 
+ *
+ * @param tsACCEL
+ * @param tsGYRO
+ * @param data
+ * @param gravityAcc
  */
 void mpu6500_calculate_results(float tsACCEL, float tsGYRO, mpu6500_data& data, uint16_t gravityAcc)
 {
@@ -244,17 +243,13 @@ void mpu6500_calculate_results(float tsACCEL, float tsGYRO, mpu6500_data& data, 
 
 /**
  * @brief Show celcius temperature
- * 
+ *
  */
-constexpr float kCelsiusOffset    = 21.f;     // ºC
-constexpr int16_t kRoomTempOffset = 0;        // LSB
-constexpr float kTempResolution   = 98.67f / INT16_MAX;
-constexpr float kFahrenheitOffset = kCelsiusOffset * 1.8f + 32;  // ºF
+float mpu6500_temp_to_celsius(uint16_t temp_be) {
+    constexpr static float kCelsiusOffset    = 21.f;     // ºC
+    constexpr static int16_t kRoomTempOffset = 0;        // LSB
+    constexpr static float kTempResolution   = 98.67f / INT16_MAX;
+    // constexpr static float kFahrenheitOffset = kCelsiusOffset * 1.8f + 32;  // ºF
 
-float tempCelsius(uint16_t& data)
-{
-    
-    // TEMP_degC = ((TEMP_OUT – RoomTemp_Offset)/Temp_Sensitivity) + DegreesCelsius_Offset
-    float temp = ((float)(data - kRoomTempOffset)* kTempResolution + kCelsiusOffset);
-    return temp;
+    return ((float)(swap_bytes(temp_be) - kRoomTempOffset)* kTempResolution + kCelsiusOffset);
 }

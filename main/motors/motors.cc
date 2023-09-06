@@ -1,5 +1,5 @@
 #include "motors.h"
-#include "Init.h"
+// #include "Init.h"
 
 #include "driver/mcpwm_prelude.h"
 #include "driver/gpio.h"
@@ -70,12 +70,11 @@ constexpr static mcpwm_timer_sync_src_config_t timer_sync_config = {
     }
 };
 
-void mcpwm_init()
-{
+void mcpwm_init() {
     ESP_LOGI(TAG,"Initialization of MCPWM");
 
     /* GPIO for EN Pin */
-    configure_led(EN_motor,GPIO_MODE_OUTPUT);
+    // configure_led(EN_motor,GPIO_MODE_OUTPUT);
 
     for (int i = 0; i < NB; ++i) {
         mcpwm_oper_handle_t operator_;
@@ -136,16 +135,14 @@ void mcpwm_init()
 }
 
 /** Check the value in limit*/
-float mcpwm_saturation(float val)
-{
+float mcpwm_saturation(float val) {
     if (val < 0.01f)return 0.01f;
     if(val > 0.99f) return 0.99f;
     return val;
 }
 
 /** Start the motor with 50% duty */
-void mcpwm_start_motor(float duty)
-{
+void mcpwm_start_motor(float duty) {
     duty = mcpwm_saturation(duty);
 
     gpio_set_level(EN_motor, 1);
@@ -158,8 +155,7 @@ void mcpwm_start_motor(float duty)
 }
 
 /** Update the duty of the motor 0.01f - 0.99f range */
-void mcpwm_update_motors(float dutyA, float dutyB)
-{
+void mcpwm_update_motors(float dutyA, float dutyB) {
     dutyA = mcpwm_saturation(dutyA);
     dutyB = mcpwm_saturation(dutyB);
 
@@ -169,8 +165,7 @@ void mcpwm_update_motors(float dutyA, float dutyB)
 }
 
 /** Stop the motor */
-void mcpwm_stop_motor()
-{
+void mcpwm_stop_motor() {
     gpio_set_level(EN_motor, 0);
 
     mcpwm_timer_start_stop(timers[0], MCPWM_TIMER_STOP_EMPTY);

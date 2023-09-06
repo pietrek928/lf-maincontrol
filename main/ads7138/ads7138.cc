@@ -1,5 +1,7 @@
 #include "ads7138.h"
 
+#include <driver/i2c.h>
+
 #include "registers.h"
 
 /* @brief tag used for ESP serial console messages */

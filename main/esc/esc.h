@@ -13,6 +13,6 @@
 #include "math.h"
 
 void esc_init();
-void esc_task(void* pvParameters);
+void esc_test_task(void* pvParameters);
 void escDuty(float duty);
 void escSpeed(float speed);

@@ -36,13 +36,13 @@ void esc_init()
     vTaskDelay(pdMS_TO_TICKS(2000));
     escDuty(0.05f);
     vTaskDelay(pdMS_TO_TICKS(1000));
-
-    xTaskCreate(&esc_task, "tmc5160_task", 4096, NULL, 10, &esc_task_handle);
 }
 
 /** Main ESC task */
-void esc_task(void* pvParameters)
+void esc_test_task(void* pvParameters)
 {
+    esc_init();
+
     // float speed = 0.0f;
     while (1)
     {
